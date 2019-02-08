@@ -211,7 +211,6 @@ int main(int argc, char **argv)
 {
 	struct passwd *caller=getpwuid(getuid());
 	struct pam_conv *conv=&pam_silent;
-	bool kdesu=false;
 	if(isatty(STDIN_FILENO))
 		conv=&pam_text;
 	if(!caller || !caller->pw_name) {
@@ -241,19 +240,7 @@ int main(int argc, char **argv)
 		// Shift arguments... We know who we are
 		shift(argc, argv);
 
-		if(!strcmp(argv[0], "--kdesu")) {
-			if(argc < 2) // PEBKAC
-				fail(1);
-			shift(argc, argv);
-			kdesu=true;
-		}
-		
 		app=argv[0];
-		if(kdesu && strchr(app, ' ')) {
-			// kdesu passes all arguments as one
-			app=strdup(argv[0]);
-			*strchr(app, ' ')=0;
-		}
 
 		if(strchr(app, '/'))
 			app=strrchr(app,'/')+1;
@@ -374,35 +361,32 @@ int main(int argc, char **argv)
 	char const * const env_shell=sgetenv("SHELL");
 	char const * const env_term=sgetenv("TERM", false, "dumb");
 	char const * const env_xauthority=sgetenv("XAUTHORITY", true);
-	if(!kdesu) {
-		// Clear the environment, put only safe stuff back
-		// If in kdesu mode, kdesu_stub will do this work for us
-		environ = (char**)malloc(sizeof(char*)*32);
-		memset(environ, 0, sizeof(char*)*32);
-		if(env_display)	setenv("DISPLAY", env_display, 1);
-		if(env_lang)	setenv("LANG", env_lang, 1);
-		if(env_lcall)	setenv("LC_ALL", env_lcall, 1);
-		if(env_lcmsgs)	setenv("LC_MESSAGES", env_lcmsgs, 1);
-		if(env_shell)	setenv("SHELL", env_shell, 1);
-		if(env_term)	setenv("TERM", env_term, 1);
 
-		// If we're going UID 0, set HOME to ~root...
-		if(target->pw_uid == 0)
-			setenv("HOME", target->pw_dir, 1);
-		else {
-			if(env_home)
-				setenv("HOME", env_home, 1);
-			else if(caller->pw_dir)
-				setenv("HOME", caller->pw_dir, 1);
-		}
+	// Clear the environment, put only safe stuff back
+	environ = (char**)malloc(sizeof(char*)*32);
+	memset(environ, 0, sizeof(char*)*32);
+	if(env_display)	setenv("DISPLAY", env_display, 1);
+	if(env_lang)	setenv("LANG", env_lang, 1);
+	if(env_lcall)	setenv("LC_ALL", env_lcall, 1);
+	if(env_lcmsgs)	setenv("LC_MESSAGES", env_lcmsgs, 1);
+	if(env_shell)	setenv("SHELL", env_shell, 1);
+	if(env_term)	setenv("TERM", env_term, 1);
 
-		// Set a safe and sane path
-		setenv("PATH", "/usr/sbin:/usr/bin:/sbin:/bin:/usr/X11R6/bin:/root/bin", 1);
-		// LOGNAME and USER...
-		setenv("LOGNAME", "root", 1);
-		setenv("USER", "root", 1);
+	// If we're going UID 0, set HOME to ~root...
+	if(target->pw_uid == 0)
+		setenv("HOME", target->pw_dir, 1);
+	else {
+		if(env_home)
+			setenv("HOME", env_home, 1);
+		else if(caller->pw_dir)
+			setenv("HOME", caller->pw_dir, 1);
 	}
 
+	// Set a safe and sane path
+	setenv("PATH", "/usr/sbin:/usr/bin:/sbin:/bin:/root/bin", 1);
+	// LOGNAME and USER...
+	setenv("LOGNAME", "root", 1);
+	setenv("USER", "root", 1);
 	
 	// Authenticate user with PAM...
 	int retval=pam_start(app, user, conv, &appdata.pam);
@@ -424,8 +408,6 @@ int main(int argc, char **argv)
 			if(env_xauthority)
 				setenv("XAUTHORITY", env_xauthority, 1);
 			become_normal(caller->pw_name);
-			if(kdesu)
-				execv("/usr/bin/kdesu_stub", argv);
 			execv(program, argv);
 			exit(1);
 		} else {
@@ -481,8 +463,6 @@ int main(int argc, char **argv)
 				}
 			}
 
-			if(kdesu)
-				execv("/usr/bin/kdesu_stub", argv);
 			execv(program, argv);
 			exit(1);
 		}
@@ -505,8 +485,6 @@ int main(int argc, char **argv)
 		}
 	} else { // Not opening a session
 		pam_end(appdata.pam, PAM_SUCCESS);
-		if(kdesu)
-			execv("/usr/bin/kdesu_stub", argv);
 		execv(program, argv);
 		exit(1);
 	}

@@ -49,7 +49,7 @@ void ConsoleHelperDlg::addButtons()
 {
 	// We have to add the icon here because this is where we know how many
 	// prompts we have...
-	QPixmap iconPic("/usr/share/icons/crystalsvg/64x64/apps/password.png");
+	QPixmap iconPic("/usr/share/icons/breeze/64/system-users.svg");
 	_icon=new QLabel(this);
 	_icon->setPixmap(iconPic);
 	_layout->addWidget(_icon, 0, 0, _numprompts, 1);

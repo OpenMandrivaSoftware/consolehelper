@@ -362,6 +362,7 @@ int main(int argc, char **argv)
 #ifndef DISABLE_X11
 	if(use_gui)
 		conv=&pam_x;
+	QCoreApplication::setSetuidAllowed(true);
 	QApplication qappl(argc, argv, use_gui);
 #endif
 	// Save some important environment variables...
